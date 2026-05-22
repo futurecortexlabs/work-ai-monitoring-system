@@ -18,7 +18,8 @@ class PoseDetector:
 
         self.pose = self.mp_pose.Pose(
             static_image_mode=False,
-            model_complexity=1,
+            model_complexity=0,
+            smooth_landmarks=True,
             enable_segmentation=False,
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5
@@ -53,10 +54,32 @@ class PoseDetector:
 
         if pose_results.pose_landmarks:
             features["has_pose"] = True
-            pose_points = []
-            for lm in pose_results.pose_landmarks.landmark:
-                pose_points.extend([lm.x, lm.y, lm.z, lm.visibility])
-            features["pose"] = pose_points
+
+            landmarks = pose_results.pose_landmarks.landmark
+
+            target_points = {
+                "left_shoulder": self.mp_pose.PoseLandmark.LEFT_SHOULDER,
+                "right_shoulder": self.mp_pose.PoseLandmark.RIGHT_SHOULDER,
+                "left_elbow": self.mp_pose.PoseLandmark.LEFT_ELBOW,
+                "right_elbow": self.mp_pose.PoseLandmark.RIGHT_ELBOW,
+                "left_wrist": self.mp_pose.PoseLandmark.LEFT_WRIST,
+                "right_wrist": self.mp_pose.PoseLandmark.RIGHT_WRIST,
+                "left_hip": self.mp_pose.PoseLandmark.LEFT_HIP,
+                "right_hip": self.mp_pose.PoseLandmark.RIGHT_HIP,
+                "left_knee": self.mp_pose.PoseLandmark.LEFT_KNEE,
+                "right_knee": self.mp_pose.PoseLandmark.RIGHT_KNEE,
+            }
+
+            pose_dict = {}
+
+            for name, point in target_points.items():
+                lm = landmarks[point.value]
+                pose_dict[f"{name}_x"] = lm.x
+                pose_dict[f"{name}_y"] = lm.y
+                pose_dict[f"{name}_z"] = lm.z
+                pose_dict[f"{name}_visibility"] = lm.visibility
+
+            features["pose"] = pose_dict
 
             self.mp_draw.draw_landmarks(
                 frame,
