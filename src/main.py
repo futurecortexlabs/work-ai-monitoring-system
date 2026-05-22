@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse
 from yolo_detector import YoloDetector
 from camera import Camera
+from pose_detector import PoseDetector
 
 
 CONFIG_PATH = Path("config/sample.yaml")
@@ -32,6 +33,8 @@ detector = YoloDetector(
     confidence=config["detection"]["confidence_threshold"],
 )
 
+pose_detector = PoseDetector()
+
 @app.get("/", response_class=HTMLResponse)
 def index():
     return """
@@ -58,7 +61,22 @@ def generate_frames():
             if frame is None:
                 continue
 
-            frame = detector.predict(frame)
+            frame, detections = detector.predict(frame)
+            frame, features = pose_detector.detect(frame)
+
+            cv2.putText(
+                frame,
+                f"Hand: {features['has_hand']} Pose: {features['has_pose']}",
+                (20, 40),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 255, 0),
+                2
+            )
+
+            if detections:
+                print(detections)
+            
             ret, buffer = cv2.imencode(".jpg", frame)
 
             if not ret:
