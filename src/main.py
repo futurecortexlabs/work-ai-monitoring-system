@@ -4,6 +4,7 @@ import numpy as np
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse
+
 from risk_tracker import RiskTracker
 from yolo_detector import YoloDetector
 from camera import Camera
@@ -20,13 +21,16 @@ feature_logger = FeatureLogger()
 posture_analyzer = PostureAnalyzer()
 risk_tracker = RiskTracker()
 
+current_label = "unknown"
+is_recording = False
+
 
 def load_config():
     with open(CONFIG_PATH, "r", encoding="utf-8") as file:
         return yaml.safe_load(file)
 
 
-def create_status_panel(frame, features, posture, detections=None):
+def create_status_panel(frame, features, posture, detections=None, label="unknown", is_recording=False):
     h, w, _ = frame.shape
     panel_w = 520
     panel_h = max(h, 720)
@@ -48,6 +52,8 @@ def create_status_panel(frame, features, posture, detections=None):
     y += 38
 
     status_items = {
+        "label": label,
+        "is_recording": is_recording,
         "has_hand": features.get("has_hand", False),
         "has_pose": features.get("has_pose", False),
         "hand_count": len(features.get("hands", [])),
@@ -119,13 +125,167 @@ def index():
         <head>
             <title>Work AI Monitoring System</title>
         </head>
-        <body>
+
+        <body style="
+            background:#111;
+            color:white;
+            font-family:sans-serif;
+            padding:20px;
+        ">
+
             <h1>Work AI Monitoring System</h1>
-            <h2>Live Camera</h2>
+
+            <h2 id="recordingStatus" style="color:#ff5555;">
+                REC: OFF
+            </h2>
+
+            <h2 id="currentLabel" style="color:#00ccff;">
+                LABEL: unknown
+            </h2>
+
+            <div style="margin-bottom:20px;">
+
+                <button id="btn_unknown"
+                    onclick="setLabel('unknown')"
+                    style="padding:12px 20px;font-size:18px;">
+                    unknown
+                </button>
+
+                <button id="btn_normal"
+                    onclick="setLabel('normal')"
+                    style="padding:12px 20px;font-size:18px;">
+                    normal
+                </button>
+
+                <button id="btn_squat"
+                    onclick="setLabel('squat')"
+                    style="padding:12px 20px;font-size:18px;">
+                    squat
+                </button>
+
+                <button id="btn_bending"
+                    onclick="setLabel('bending')"
+                    style="padding:12px 20px;font-size:18px;">
+                    bending
+                </button>
+
+                <button id="btn_arms_up"
+                    onclick="setLabel('arms_up')"
+                    style="padding:12px 20px;font-size:18px;">
+                    arms_up
+                </button>
+
+                <br><br>
+
+                <button onclick="startRecording()"
+                    style="
+                        background:#00aa44;
+                        color:white;
+                        padding:14px 24px;
+                        font-size:20px;
+                    ">
+                    Start Recording
+                </button>
+
+                <button onclick="stopRecording()"
+                    style="
+                        background:#aa0000;
+                        color:white;
+                        padding:14px 24px;
+                        font-size:20px;
+                    ">
+                    Stop Recording
+                </button>
+
+            </div>
+
             <img src="/video_feed" width="1280">
+
+            <script>
+
+                function resetButtons() {
+
+                    const buttons = [
+                        "unknown",
+                        "normal",
+                        "squat",
+                        "bending",
+                        "arms_up"
+                    ];
+
+                    buttons.forEach(name => {
+
+                        const btn = document.getElementById("btn_" + name);
+
+                        btn.style.background = "#eeeeee";
+                        btn.style.color = "black";
+                    });
+                }
+
+                async function setLabel(label) {
+
+                    await fetch(`/set_label/${label}`);
+
+                    document.getElementById("currentLabel").innerText =
+                        "LABEL: " + label;
+
+                    resetButtons();
+
+                    const activeBtn =
+                        document.getElementById("btn_" + label);
+
+                    activeBtn.style.background = "#00ccff";
+                    activeBtn.style.color = "white";
+
+                    console.log("label changed:", label);
+                }
+
+                async function startRecording() {
+
+                    await fetch('/start_recording');
+
+                    document.getElementById("recordingStatus").innerText =
+                        "REC: ON";
+
+                    document.getElementById("recordingStatus").style.color =
+                        "#00ff66";
+                }
+
+                async function stopRecording() {
+
+                    await fetch('/stop_recording');
+
+                    document.getElementById("recordingStatus").innerText =
+                        "REC: OFF";
+
+                    document.getElementById("recordingStatus").style.color =
+                        "#ff5555";
+                }
+
+            </script>
+
         </body>
     </html>
     """
+
+@app.get("/set_label/{label}")
+def set_label(label: str):
+    global current_label
+    current_label = label
+    return {"current_label": current_label}
+
+@app.get("/start_recording")
+def start_recording():
+    global is_recording
+    is_recording = True
+    return {"is_recording": is_recording}
+
+
+@app.get("/stop_recording")
+def stop_recording():
+    global is_recording
+    is_recording = False
+    return {"is_recording": is_recording}
 
 
 def generate_frames():
@@ -156,11 +316,11 @@ def generate_frames():
             risk_state = risk_tracker.update(posture)
             posture.update(risk_state)
 
-            if frame_count % 10 == 0:
+            if is_recording and frame_count % 10 == 0:
                 feature_logger.save(
                     features,
                     posture=posture,
-                    label="unknown",
+                    label=current_label,
                 )
 
             frame = create_status_panel(
@@ -168,6 +328,8 @@ def generate_frames():
                 features,
                 posture,
                 detections=detections,
+                label=current_label,
+                is_recording=is_recording,
             )
 
             ret, buffer = cv2.imencode(".jpg", frame)

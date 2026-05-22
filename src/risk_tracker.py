@@ -30,8 +30,14 @@ class RiskTracker:
 
             result[f"{key}_duration_sec"] = round(duration, 2)
 
-        result["is_long_forward_bending"] = result["is_forward_bending_duration_sec"] >= 3
-        result["is_long_squatting"] = result["is_squatting_duration_sec"] >= 3
-        result["is_long_arms_up"] = result["is_both_arms_up_duration_sec"] >= 5
+        result["is_long_forward_bending"] = (
+            result["is_forward_bending_duration_sec"] >= 3
+        )
+        result["is_long_squatting"] = (
+            result["is_squatting_duration_sec"] >= 3
+        )
+        result["is_long_arms_up"] = (
+            result["is_both_arms_up_duration_sec"] >= 5
+        )
 
         return result
