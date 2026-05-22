@@ -1,57 +1,95 @@
+import cv2
 import yaml
 from pathlib import Path
-
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse, StreamingResponse
+from yolo_detector import YoloDetector
 from camera import Camera
 
 
 CONFIG_PATH = Path("config/sample.yaml")
 
+app = FastAPI()
+
 
 def load_config():
-    if not CONFIG_PATH.exists():
-        raise FileNotFoundError(f"Config file not found: {CONFIG_PATH}")
-
     with open(CONFIG_PATH, "r", encoding="utf-8") as file:
         return yaml.safe_load(file)
 
 
-def main():
-    config = load_config()
+config = load_config()
+camera_config = config["camera"]
 
-    print("===================================")
-    print("Work AI Monitoring System Started")
-    print("===================================")
-    print(f"System  : {config['system']['name']}")
-    print(f"Mode    : {config['system']['mode']}")
-    print(f"Factory : {config['system']['factory_id']}")
-    print(f"Line    : {config['system']['line_id']}")
-    print("===================================")
+camera = Camera(
+    source=camera_config["source"],
+    width=camera_config["width"],
+    height=camera_config["height"],
+    fps=camera_config["fps"],
+)
 
-    camera_config = config["camera"]
+detector = YoloDetector(
+    model_path=config["models"]["yolo_model_path"],
+    confidence=config["detection"]["confidence_threshold"],
+)
 
-    camera = Camera(
-        source=camera_config["source"],
-        width=camera_config["width"],
-        height=camera_config["height"],
-        fps=camera_config["fps"],
-    )
+@app.get("/", response_class=HTMLResponse)
+def index():
+    return """
+    <html>
+        <head>
+            <title>Work AI Monitoring System</title>
+        </head>
+        <body>
+            <h1>Work AI Monitoring System</h1>
+            <h2>Live Camera</h2>
+            <img src="/video_feed" width="640">
+        </body>
+    </html>
+    """
+
+
+def generate_frames():
+    camera.open()
 
     try:
-        camera.open()
-        frame = camera.read()
+        while True:
+            frame = camera.read()
 
-        if frame is not None:
-            print("Camera test: OK")
-            print(f"Frame shape: {frame.shape}")
-        else:
-            print("Camera test: NG - No frame captured")
+            if frame is None:
+                continue
 
-    except RuntimeError as e:
-        print(f"Camera test: SKIPPED - {e}")
+            frame = detector.predict(frame)
+            ret, buffer = cv2.imencode(".jpg", frame)
+
+            if not ret:
+                continue
+
+            frame_bytes = buffer.tobytes()
+
+            yield (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
+            )
 
     finally:
         camera.release()
 
 
+@app.get("/video_feed")
+def video_feed():
+    return StreamingResponse(
+        generate_frames(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+    )
+
+
 if __name__ == "__main__":
-    main()
+    import uvicorn
+
+    print("===================================")
+    print("Work AI Monitoring System Started")
+    print("===================================")
+    print("Open: http://localhost:8000")
+    print("===================================")
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)

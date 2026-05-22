@@ -3,13 +3,13 @@ services:
     build: .
     container_name: work-ai-service
     restart: "no"
+    privileged: true
 
     volumes:
       - ./:/app
 
     devices:
       - /dev/video0:/dev/video0
-      - /dev/video1:/dev/video1
 
     ports:
       - "8000:8000"

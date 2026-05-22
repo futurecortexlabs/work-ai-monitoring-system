@@ -5,14 +5,14 @@ system:
   line_id: line_001
 
 camera:
-  source: 1
+  source: /dev/video0
   width: 640
   height: 480
   fps: 30
 
 models:
-  yolo_model_path: models/yolo/best.pt
-  lstm_model_path: models/lstm/work_classifier.pt
+  yolo_model_path: yolo11n.pt
+  lstm_model_path: models/lstm/work_classifier.ptd
 
 detection:
   confidence_threshold: 0.5
