@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+
+models/
+logs/
+db/
+data/
+
+*.pt
+*.onnx
+*.engine
+*.mp4
+*.avi
+*.csv
+*.sqlite
