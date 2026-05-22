@@ -10,7 +10,13 @@ class Camera:
         self.cap = None
 
     def open(self):
-        self.cap = cv2.VideoCapture(str(self.source), cv2.CAP_V4L2)
+        if isinstance(self.source, int):
+            self.cap = cv2.VideoCapture(self.source)
+        else:
+            self.cap = cv2.VideoCapture(
+                self.source,
+                cv2.CAP_V4L2
+            )
 
         if not self.cap.isOpened():
             raise RuntimeError(f"Failed to open camera source: {self.source}")

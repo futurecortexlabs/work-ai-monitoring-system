@@ -129,7 +129,8 @@ def index():
 
 
 def generate_frames():
-    camera.open()
+    if camera.cap is None or not camera.cap.isOpened():
+        camera.open()
 
     frame_count = 0
     last_detections = []
@@ -143,22 +144,18 @@ def generate_frames():
 
             frame_count += 1
 
-            # YOLOは5フレームに1回
             if frame_count % 5 == 0:
                 frame, detections = detector.predict(frame)
                 last_detections = detections
             else:
                 detections = last_detections
 
-            # Pose
             frame, features = pose_detector.detect(frame)
 
-            # 姿勢解析
             posture = posture_analyzer.analyze(features)
             risk_state = risk_tracker.update(posture)
             posture.update(risk_state)
 
-            # CSV保存は10フレームに1回
             if frame_count % 10 == 0:
                 feature_logger.save(
                     features,
@@ -166,7 +163,6 @@ def generate_frames():
                     label="unknown",
                 )
 
-            # ステータス表示
             frame = create_status_panel(
                 frame,
                 features,
@@ -184,12 +180,12 @@ def generate_frames():
             yield (
                 b"--frame\r\n"
                 b"Content-Type: image/jpeg\r\n\r\n"
-                + frame_bytes +
-                b"\r\n"
+                + frame_bytes
+                + b"\r\n"
             )
 
-    finally:
-        camera.release()
+    except GeneratorExit:
+        pass
 
 
 @app.get("/video_feed")
