@@ -1,14 +1,15 @@
-version: '3.9'
-
 services:
-
   ai-service:
     build: .
     container_name: work-ai-service
-    restart: always
+    restart: "no"
 
     volumes:
       - ./:/app
+
+    devices:
+      - /dev/video0:/dev/video0
+      - /dev/video1:/dev/video1
 
     ports:
       - "8000:8000"
