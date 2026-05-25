@@ -15,3 +15,12 @@ data/
 *.avi
 *.csv
 *.sqlite
+# crash dump
+core.*
+
+# Windows downloaded file metadata
+*:Zone.Identifier
+
+# logs
+logs/
+*.csv

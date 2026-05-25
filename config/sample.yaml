@@ -1,9 +1,3 @@
-system:
-  name: work-ai-monitoring-system
-  mode: offline
-  factory_id: factory_001
-  line_id: line_001
-
 camera:
   source: 0
   width: 640
@@ -12,26 +6,6 @@ camera:
 
 models:
   yolo_model_path: yolo11n.pt
-  lstm_model_path: models/lstm/work_classifier.ptd
 
 detection:
   confidence_threshold: 0.5
-
-anomaly:
-  enabled: true
-  threshold: 0.75
-  min_duration_sec: 3
-
-database:
-  type: sqlite
-  path: db/work_ai.db
-
-dashboard:
-  host: 0.0.0.0
-  port: 8501
-
-plc:
-  enabled: false
-  protocol: modbus_tcp
-  host: 192.168.0.10
-  port: 502

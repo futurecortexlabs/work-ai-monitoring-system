@@ -7,7 +7,7 @@ class YoloDetector:
         self.confidence = confidence
         self.device = device
 
-    def predict(self, frame):
+    def predict(self, frame, draw=False):
         results = self.model(
             frame,
             conf=self.confidence,
@@ -15,7 +15,7 @@ class YoloDetector:
             device=self.device,
         )
 
-        annotated_frame = results[0].plot()
+        annotated_frame = results[0].plot() if draw else frame
 
         detections = []
 
