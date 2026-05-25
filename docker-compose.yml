@@ -1,17 +1,18 @@
 services:
   ai-service:
     build: .
+
     container_name: work-ai-service
+
     privileged: true
+
+    network_mode: host
 
     devices:
       - /dev/video0:/dev/video0
-      - /dev/video1:/dev/video1
-      - /dev/video2:/dev/video2
-      - /dev/video3:/dev/video3
 
-    ports:
-      - "8000:8000"
+    volumes:
+      - ./:/app
 
     environment:
       - PYTHONUNBUFFERED=1
@@ -25,8 +26,5 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-
-    volumes:
-      - ./:/app
 
     command: python3 src/main.py

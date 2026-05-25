@@ -20,26 +20,50 @@ class Camera:
         self.cap = None
 
     def open(self):
+
         if self.cap is not None and self.cap.isOpened():
             return
 
-        self.cap = cv2.VideoCapture(self.source, cv2.CAP_V4L2)
+        self.cap = cv2.VideoCapture(
+            self.source,
+            cv2.CAP_V4L2
+        )
 
         if not self.cap.isOpened():
-            raise RuntimeError(f"Failed to open camera source: {self.source}")
 
-        # Reduce latency. Not every camera honors all settings, but they are safe.
-        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-        self.cap.set(cv2.CAP_PROP_FPS, self.fps)
+            print("Retry camera open without V4L2")
 
-        time.sleep(0.2)
+            self.cap = cv2.VideoCapture(self.source)
 
-        # Discard old frames after opening.
-        for _ in range(5):
-            self.cap.grab()
+        if not self.cap.isOpened():
+            raise RuntimeError(
+                f"Failed to open camera source: {self.source}"
+            )
+
+        self.cap.set(
+            cv2.CAP_PROP_FOURCC,
+            cv2.VideoWriter_fourcc(*"MJPG")
+        )
+
+        self.cap.set(
+            cv2.CAP_PROP_FRAME_WIDTH,
+            self.width
+        )
+
+        self.cap.set(
+            cv2.CAP_PROP_FRAME_HEIGHT,
+            self.height
+        )
+
+        self.cap.set(
+            cv2.CAP_PROP_FPS,
+            self.fps
+        )
+
+        self.cap.set(
+            cv2.CAP_PROP_BUFFERSIZE,
+            1
+        )
 
     def read(self):
         if self.cap is None or not self.cap.isOpened():

@@ -1,34 +1,23 @@
 import csv
-import os
 
 
 class GanttChecker:
-    """
-    Compare current AI action against a standard work timeline.
-
-    CSV format:
-    step,start_sec,end_sec,expected_action,required_object,allowed_posture
-    1,0,10,normal,none,standing
-    2,10,25,bending,none,working_pose
-    """
-
-    def __init__(self, csv_path="/app/config/standard_work.csv"):
-        self.csv_path = csv_path
+    def __init__(self, csv_path="config/standard_work.csv"):
         self.steps = []
-        self.load()
+        self.load(csv_path)
 
-    def load(self):
-        if not os.path.exists(self.csv_path):
-            self.steps = []
-            return
-
-        with open(self.csv_path, newline="", encoding="utf-8") as f:
+    def load(self, csv_path):
+        with open(csv_path, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
-            self.steps = list(reader)
-
-        for step in self.steps:
-            step["start_sec"] = float(step["start_sec"])
-            step["end_sec"] = float(step["end_sec"])
+            for row in reader:
+                self.steps.append({
+                    "step": row["step"],
+                    "start_sec": float(row["start_sec"]),
+                    "end_sec": float(row["end_sec"]),
+                    "expected_action": row["expected_action"],
+                    "required_object": row["required_object"],
+                    "allowed_posture": row["allowed_posture"],
+                })
 
     def get_expected_step(self, elapsed_sec):
         for step in self.steps:
@@ -36,59 +25,50 @@ class GanttChecker:
                 return step
         return None
 
-    def check(self, elapsed_sec, actual_action, detections, posture):
-        step = self.get_expected_step(elapsed_sec)
+    def check(self, elapsed_sec, actual_action, detected_objects, posture_label):
+        expected = self.get_expected_step(elapsed_sec)
 
-        if step is None:
+        if expected is None:
             return {
-                "is_ng": False,
-                "reason": "no_standard_step",
-                "expected_action": "unknown",
+                "result": "NG",
+                "reason": "standard_step_not_found",
+                "expected": None,
+                "actual_action": actual_action,
             }
 
-        expected_action = step.get("expected_action", "unknown")
-        required_object = step.get("required_object", "none")
-        allowed_posture = step.get("allowed_posture", "any")
+        reasons = []
 
-        if expected_action != "any" and actual_action != expected_action:
-            return {
-                "is_ng": True,
-                "reason": f"action_mismatch expected={expected_action} actual={actual_action}",
-                "expected_action": expected_action,
-            }
+        if actual_action != expected["expected_action"]:
+            reasons.append(
+                f"action_mismatch expected={expected['expected_action']} actual={actual_action}"
+            )
 
-        if required_object and required_object != "none":
-            detected_names = {d.get("class_name") for d in detections}
-            if required_object not in detected_names:
-                return {
-                    "is_ng": True,
-                    "reason": f"required_object_missing object={required_object}",
-                    "expected_action": expected_action,
-                }
+        required_object = expected["required_object"]
 
-        if allowed_posture == "standing" and not posture.get("is_standing"):
-            return {
-                "is_ng": True,
-                "reason": "posture_mismatch expected=standing",
-                "expected_action": expected_action,
-            }
+        if required_object != "none":
+            if required_object not in detected_objects:
+                reasons.append(
+                    f"object_missing required={required_object}"
+                )
 
-        if allowed_posture == "squatting" and not posture.get("is_squatting"):
-            return {
-                "is_ng": True,
-                "reason": "posture_mismatch expected=squatting",
-                "expected_action": expected_action,
-            }
+        allowed_posture = expected["allowed_posture"]
 
-        if allowed_posture == "working_pose" and not posture.get("is_working_pose"):
-            return {
-                "is_ng": True,
-                "reason": "posture_mismatch expected=working_pose",
-                "expected_action": expected_action,
-            }
+        if allowed_posture != "any":
+            if posture_label != allowed_posture:
+                reasons.append(
+                    f"posture_mismatch expected={allowed_posture} actual={posture_label}"
+                )
+
+        if reasons:
+            result = "NG"
+        else:
+            result = "OK"
 
         return {
-            "is_ng": False,
-            "reason": "ok",
-            "expected_action": expected_action,
+            "result": result,
+            "reason": " / ".join(reasons) if reasons else "ok",
+            "expected": expected,
+            "actual_action": actual_action,
+            "detected_objects": detected_objects,
+            "posture_label": posture_label,
         }
